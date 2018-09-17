@@ -1,7 +1,8 @@
 import numpy as np
 # import subprocess
-import pysais
+# import pysais
 from Levenshtein import distance as leven_dist
+# https://rawgit.com/ztane/python-Levenshtein/master/docs/Levenshtein.html#Levenshtein-setmedian
 
 def modified_lev(s_target, S_list):
     dp_memo = np.zeros(len(s_target) + 1)
@@ -70,17 +71,16 @@ def extractRepeats(strings):
 #     return repeats
 
 if __name__ == "__main__":
+    
+    # sa = pysais.sais(target1)
+    # lcp, lcp_lm, lcp_mr = pysais.lcp(target1, sa)
+    
+    # for off in sa:
+    #     print(off, sa[off:])
+    
     target1 = '1122334412332244122234123443212344$'
-    sa = pysais.sais(target1)
-    lcp, lcp_lm, lcp_mr = pysais.lcp(target1, sa)
-    
-    for off in sa:
-        print(off, sa[off:])
-
-    
-
-    # target2 = '33441234123443224411442221'
-    # modified_lev(target1, 
-    #     ['11223', '11', '22', '2344', '1', '2', '3', '4'])
+    target2 = '33441234123443224411442221'
+    modified_lev(target1, 
+        ['11223', '11', '22', '2344', '1', '2', '3', '4'])
 
     # print(extractRepeats([target1]))
