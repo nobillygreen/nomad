@@ -33,7 +33,7 @@ def levenshtein_multi_char_inserts_rec(s_target, s_index, S_list, dp_memo, dp_ac
         # lowerbound = int(max(1, floor((2/3.0) * len(s))))
         # upperbound = max(2, min(floor(1.5*len(s)), len(s_target[s_index:])))
         # print s, lowerbound, max(2, min(2*len(s), len(s_target[s_index:])+2))
-        for i in range(1, min(2*len(s), len(s_target[s_index:])+2)):
+        for i in range(1, int(max(2, min(2*len(s), len(s_target[s_index:])+2)))):
         # print lowerbound, upperbound - 1
         # if lowerbound >= upperbound:
         #     break
