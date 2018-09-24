@@ -59,30 +59,11 @@ def parseRepeats(repeats, strings_as_array):
 class Nomad():
 
     def __init__(self, target_strings):
-        self.considered_canditates = []
-        self.finding_candidates = True
-
         self.target_strings = target_strings
         self.alphabet = list(set("".join(target_strings)))
         self.middle_strings = []
         self.grammar_cost = None
-
-        # saves the memo of the dynamic programming algo for creating the strings
-        self.dp_memos_cache = {}
         self.recompute_graph_and_trim_middle_strings()
-
-        self.max_motif_length = min(map(len, target_strings)) * 0.51
-
-    def make_random_candidates(self, strings, num_candidates):
-        candidates = []
-        for i in xrange(num_candidates):
-            s = choice(strings)
-            a, b = int(random() * (len(s) - 1)), int(random() * (len(s)-1) + 1)
-            a, b = sorted([a, b])
-            b = b + 1
-            candidates.append((s[a:b], 0))
-
-        return candidates
 
     # Compute the total cost of a grammar
     # returns the total cost of the grammar, the dp memo for each string, and the
@@ -91,10 +72,7 @@ class Nomad():
         # cost to compute each string
         string_costs = {}
 
-        # cache of the dp memo used to calculate the cost of each string
-        dp_memos_cache = {}
-
-        # Initialize the disctionary for counting the used strings
+        # Initialize the dictionary for counting the used strings
         used_string_counts = {s: 0 for s in middle_strings}
         for a in self.alphabet:
             used_string_counts[a] = 0
@@ -104,7 +82,6 @@ class Nomad():
             possible_children = [s for s in middle_strings if len(s) < len(ms)]
             possible_children.extend(self.alphabet)
             memo = levenshtein_multi_char_inserts(ms, possible_children)
-            dp_memos_cache[ms] = memo
             string_costs[ms] = memo[-1]['cost']
             used_strings = extract_path_from_action_list(memo)
             for s in used_strings:
@@ -113,9 +90,8 @@ class Nomad():
         possible_children = copy(self.alphabet)
         possible_children.extend(middle_strings)
         for ts in self.target_strings:
-            possible_children = copy(possible_children)
-            memo = levenshtein_multi_char_inserts(ts, possible_children)
-            dp_memos_cache[ts] = memo
+            ts_possible_children = copy(possible_children)
+            memo = levenshtein_multi_char_inserts(ts, ts_possible_children)
             string_costs[ts] = memo[-1]['cost']
             used_strings = extract_path_from_action_list(memo)
             for s in used_strings:
@@ -132,15 +108,13 @@ class Nomad():
                 was_string_removed_flag = True
 
         while(was_string_removed_flag):
-            total_cost, dp_memos_cache, middle_strings, was_string_removed_flag = self.total_cost(middle_strings)
+            total_cost , middle_strings, was_string_removed_flag = self.total_cost(middle_strings)
 
-        self.dp_memos_cache = dp_memos_cache
-        return total_cost, dp_memos_cache, middle_strings, was_string_removed_flag
+        return total_cost, middle_strings, was_string_removed_flag
 
     def recompute_graph_and_trim_middle_strings(self):
-        total_cost, dp_memos_cache, middle_strings, _ = self.total_cost(self.middle_strings)
+        total_cost, middle_strings, _ = self.total_cost(self.middle_strings)
         self.grammar_cost = total_cost
-        self.dp_memos_cache = dp_memos_cache
         self.middle_strings = middle_strings
         return total_cost
 
@@ -151,15 +125,12 @@ class Nomad():
 
         return reduce(lambda a, b: a + [0] + b, int_array)
 
-    def find_best_grammar(self, iterations, greedy):
-        for i in xrange(iterations):
-            print 'iteration', i
-            cost = self.recompute_graph_and_trim_middle_strings()
-            print "-------", cost, self.middle_strings
-
+    def find_best_grammar(self, max_iterations):
+        cost = self.grammar_cost
+        print "Starting cost: ", cost
+        for i in xrange(max_iterations):
             all_strings = self.middle_strings + self.target_strings
-            candidates = extractRepeats(
-                self.strings_to_int_arrays(all_strings))
+            candidates = extractRepeats(self.strings_to_int_arrays(all_strings))
 
             filtered_canditates = []
             for c in candidates:
@@ -170,114 +141,23 @@ class Nomad():
                 if len(s_c) == 1:
                     continue
 
-                if c[0] in self.considered_canditates:
-                    continue
-
-                if len(s_c) > self.max_motif_length:
+                if s_c in self.middle_strings or s_c in self.target_strings:
                     continue
                 
-                self.considered_canditates.append(c[0])
                 filtered_canditates.append(c[0])
-            # candidates = self.make_random_candidates(all_strings, 100)
 
-            # best_candidate = self.select_best_longest_candidate(candidates, cost)
-            # best_candidate = self.select_best_shortest_candidate(filtered_canditates, cost, greedy)
-            # if best_candidate == "":
-            #     print "no good candidate"
-            #     break
-            # else:
-            #     self.middle_strings.append(best_candidate)
-
-            print "candidates", filtered_canditates
+            former_middle_strings = sorted(copy(self.middle_strings))
             self.middle_strings.extend(filtered_canditates)
-            # good_candidates = self.select_all_good_candidates(candidates, cost)
-            # if not good_candidates:
-            #     if self.finding_candidates == True:
-            #         self.considered_canditates = []
-            #         self.finding_candidates = False
-            #     else:
-            #         break
-            #     print "no more good candidates"
-            #     # break
-            # else:
-            #     self.finding_candidates = True
-            #     self.middle_strings.extend(good_candidates)
-
-
+            cost = self.recompute_graph_and_trim_middle_strings()
+            print 'iteration', i, 'cost:', cost
+            if sorted(self.middle_strings) == former_middle_strings:
+                print 'No strings were added. Terminating'
+                break
 
         print 'best grammar', self.middle_strings, cost
         return cost
 
-    def select_best_longest_candidate(self, candidates, current_cost, greedy=True):
-        best_candidate = ""
-        best_cost = current_cost
-        candidates = sorted(candidates, key=lambda x: len(x[0]), reverse=True)
-
-        for candidate, _ in candidates:
-            if candidate in self.middle_strings or candidate in self.target_strings:
-                continue
-
-            if best_candidate != "" and len(candidate) < len(best_candidate):
-                break
-
-            new_middle_strings = copy(self.middle_strings)
-            new_middle_strings.append(candidate)
-            new_cost, _, _, _ = self.total_cost(new_middle_strings)
-
-            if new_cost < best_cost:
-                best_candidate = candidate
-                if greedy:
-                    break
-
-        return best_candidate
-
-    # If greedy is true, returns the first candidate that has a positive impact on the cost
-    def select_best_shortest_candidate(self, candidates, current_cost, greedy):
-        best_candidate = ""
-        best_cost = current_cost
-        candidates = sorted(candidates, key=lambda x: len(x[0]))
-
-        for candidate, _ in candidates:
-            print 'considering candidate', candidate
-            if candidate in self.middle_strings or candidate in self.target_strings:
-                continue
-
-            if best_candidate != "" and len(candidate) > len(best_candidate):
-                break
-
-            new_middle_strings = copy(self.middle_strings)
-            new_middle_strings.append(candidate)
-            new_cost, _, _, _ = self.total_cost(new_middle_strings)
-
-            if new_cost < best_cost:
-                best_candidate = candidate
-                if greedy:
-                    break
-
-        return best_candidate
-
-    def select_all_good_candidates(self, candidates, current_cost):
-        good_candidates = []
-        for candidate, _ in candidates:
-            if candidate in self.middle_strings or candidate in self.target_strings:
-                continue
-
-            if len(candidate) > self.max_motif_length:
-                continue
-
-            print 'considering candidate', candidate
-
-            middle_strings = copy(self.middle_strings)
-            middle_strings.append(candidate)
-            new_cost, _, _, _ = self.total_cost(middle_strings)
-
-            if new_cost < current_cost:
-                good_candidates.append(candidate)
-
-        return good_candidates
-
 if __name__ == "__main__":
-    s = '5113511361136113511351136113611351135113611361135113511361136113'
+    s = '112233441122334444332211'
     model = Nomad([s])
-    # print model.recompute_graph_and_trim_middle_strings(greedy=False)
-    model.find_best_grammar(100, False)
+    model.find_best_grammar(100)

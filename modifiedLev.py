@@ -18,7 +18,10 @@ def levenshtein_multi_char_inserts(s_target, s_list):
     dp_memo = [{'cost': 0, 'from': None, 'via': None} for _ in s_target]
 
     for s_index, entry in enumerate(dp_memo):
-        current_cost = dp_memo[s_index]['cost']
+        if s_index == 0:
+            current_cost = 0
+        else:
+            current_cost = dp_memo[s_index-1]['cost']
         for s in s_list:
             upperbound = int(min(len(s) * 1.5, len(s_target) - s_index))
             substring_target = s_target[s_index:s_index + upperbound]
@@ -37,4 +40,4 @@ def levenshtein_multi_char_inserts(s_target, s_list):
 
 
 if __name__ == "__main__":
-    print 'cost', levenshtein_multi_char_inserts('11223344112233441122334411223344', ['11223344', '1122334411223344', '3', '4'])
+    print 'cost', levenshtein_multi_char_inserts('1111222233334444', ['1111', '2222', '3', '4'])
