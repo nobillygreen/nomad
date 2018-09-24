@@ -6,15 +6,14 @@ from Levenshtein import distance as leven_dist
 from operator import itemgetter
 from collections import defaultdict
 from math import floor, ceil
+from pprint import pprint
 # https://rawgit.com/ztane/python-Levenshtein/master/docs/Levenshtein.html#Levenshtein-setmedian
 
 def levenshtein_multi_char_inserts(s_target, s_list):
-    dp_memo = np.zeros(len(s_target) + 1)
-
     # Stores the action that resulted in the best score at a location in the string
-    dp_action_memo = [None for i in range(len(s_target) + 1)]
-    levenshtein_multi_char_inserts_rec(s_target, 0, s_list, dp_memo, dp_action_memo)
-    return dp_memo, dp_action_memo
+    dp_memo = [{'score': 0, 'from': None, 'via': None} for _ in s_target]
+    levenshtein_multi_char_inserts_rec(s_target, 0, s_list, dp_memo)
+    return dp_memo
 
 # s_target: the string to compute a cost of generating
 # s_index: the current index of the string
@@ -22,31 +21,27 @@ def levenshtein_multi_char_inserts(s_target, s_list):
 # dp_memo: holds the current best known score for creating the string up to a given index
 # dp_action_memo: stores what string was used as in insertion to get to a given index and
 #    specifies which index it was added at too.
-def levenshtein_multi_char_inserts_rec(s_target, s_index, S_list, dp_memo, dp_action_memo):
+def levenshtein_multi_char_inserts_rec(s_target, s_index, S_list, dp_memo):
     if (len(s_target) <= s_index):
         return
 
-    cur_score = dp_memo[s_index]
+    if s_index == 0:
+        cur_score = 0
+    else:
+        cur_score = dp_memo[s_index-1]['score']
 
     for s in S_list:
-        # upperbound to twice the length of the string. This is arbitrarily set for now
-        # lowerbound = int(max(1, floor((2/3.0) * len(s))))
-        # upperbound = max(2, min(floor(1.5*len(s)), len(s_target[s_index:])))
-        # print s, lowerbound, max(2, min(2*len(s), len(s_target[s_index:])+2))
-        for i in range(1, int(max(2, min(2*len(s), len(s_target[s_index:])+2)))):
-        # print lowerbound, upperbound - 1
-        # if lowerbound >= upperbound:
-        #     break
-        # for i in range(int(lowerbound), int(upperbound)):
+        lowerbound = int(max(0, ceil((2/3.0) * len(s)) - 1))
+        upperbound = int(min(len(s) * 1.5, len(s_target) - s_index))
+        for i in range(lowerbound, upperbound):
             s_score = cur_score + 1
-            target_substring = s_target[s_index:s_index+i]
+            target_substring = s_target[s_index:s_index+i+1]
             substring_score = leven_dist(target_substring, s)
             s_score += substring_score
-            
-            if dp_memo[min(s_index+i, s_index + len(target_substring))] == 0 or dp_memo[min(s_index+i, s_index + len(target_substring))] > s_score:
-                dp_memo[s_index+i] = s_score
-                dp_action_memo[s_index+i] = {'from': s_index, 'via': s}
-                levenshtein_multi_char_inserts_rec(s_target, s_index + i, S_list, dp_memo, dp_action_memo)
+            # print s, 'to',  s_target[s_index:s_index+i], 'is', substring_score
+            if dp_memo[s_index + i]['score'] == 0 or dp_memo[s_index + i]['score'] > s_score:
+                dp_memo[s_index + i] = {'score': s_score, 'from': s_index - 1, 'via': s}
+                levenshtein_multi_char_inserts_rec(s_target, s_index + i + 1, S_list, dp_memo)
 
 def extractRepeats(strings_as_array):
     process = subprocess.Popen(["./repeats1/repeats11", "-i", "-r"+"m", "-n2",
@@ -107,11 +102,13 @@ class Nomad():
             a, b = int(random() * (len(s) -1)), int(random() * (len(s)-1) + 1)
             a, b = sorted([a,b])
             b = b + 1
-            candidates.append((s[a:b], 0, 0))
+            candidates.append((s[a:b], 0))
 
         return candidates
 
     # Compute the total cost of a grammar
+    # returns the total cost of the grammar, the dp memo for each string, and the
+    # list of middle strings after strings that were used less than twice are removed
     def total_cost(self, middle_strings):
         # cost to compute each string
         string_costs = {}
@@ -128,35 +125,31 @@ class Nomad():
             # Assume that the middle strings can only be create by strings smaller that themselves
             possible_children = [s for s in middle_strings if len(s) < len(ms)]
             possible_children.extend(self.alphabet)
-            costs, actions = levenshtein_multi_char_inserts(ms, possible_children) 
-            string_costs[ms] = actions
-            used_strings = self.extract_path_from_action_list(actions)
+            memo = levenshtein_multi_char_inserts(ms, possible_children)
+            dp_memo_cache[ms] = memo
+            string_costs[ms] = memo[-1]['score']
+            used_strings = self.extract_path_from_action_list(memo)
             for s in used_strings:
                 used_string_counts[s] += 1
-            string_costs[ms] = costs[-1]
 
         possible_children = copy(self.alphabet)
         possible_children.extend(middle_strings)
         for ts in self.target_strings:
             possible_children = copy(possible_children)
-            costs, actions = levenshtein_multi_char_inserts(ts, possible_children)
-            string_costs[ts] = actions
-            used_strings = self.extract_path_from_action_list(actions)
+            memo = levenshtein_multi_char_inserts(ts, possible_children)
+            dp_memo_cache[ts] = memo
+            string_costs[ts] = memo[-1]['score']
+            used_strings = self.extract_path_from_action_list(memo)
             for s in used_strings:
                 used_string_counts[s] += 1
-            string_costs[ts] = costs[-1]
 
         for s in used_string_counts:
             count = used_string_counts[s]
             if count == 0 and not s in self.alphabet:
                 middle_strings.remove(s)
                 string_costs[s] = 0
-                print '*****************removing', s
 
-
-        total_cost = sum(string_costs.values())
-        # returns the total cost of the grammar, the dp memo for each string, and the
-        # list of middle strings after strings that were used less than twice are removed
+        total_cost = sum(string_costs.values()) + len(middle_strings)
         return total_cost, dp_memo_cache, middle_strings
 
     def recompute_graph_and_trim_middle_strings(self):
@@ -183,17 +176,19 @@ class Nomad():
 
     def find_best_grammar(self, iterations):
         for i in range(iterations):
+            print 'iteration', i
             cost = self.recompute_graph_and_trim_middle_strings()
             # cost, dp_memos,  = self.total_cost(self.middle_strings)
-            print "iteration", i, cost, self.middle_strings
+            print "-------", cost, self.middle_strings
 
             all_strings = self.middle_strings + self.target_strings
-            candidates = extractRepeats(self.strings_to_int_arrays(all_strings))
+            # candidates = extractRepeats(self.strings_to_int_arrays(all_strings))
+            candidates = self.make_random_candidates(all_strings, 100)
 
             best_candidate = self.select_best_longest_candidate(candidates, cost)
             if best_candidate == "":
                 print "no good candidate"
-                break
+                # break
             else:
                 self.middle_strings.append(best_candidate)
 
@@ -206,13 +201,15 @@ class Nomad():
         candidates = sorted(candidates, key=lambda x: len(x[0]), reverse=True)
 
         for candidate, _ in candidates:
+            if candidate in self.middle_strings or candidate in self.target_strings:
+                continue
+
             if best_candidate != "" and len(candidate) < len(best_candidate):
                 break
 
             new_middle_strings = copy(self.middle_strings)
             new_middle_strings.append(candidate)
             new_cost, _, _ = self.total_cost(new_middle_strings)
-            print 'candidate', candidate, new_cost
 
             if new_cost < best_cost:
                 best_candidate = candidate
@@ -225,6 +222,9 @@ class Nomad():
         candidates = sorted(candidates, key=lambda x: len(x[0]))
 
         for candidate, _ in candidates:
+            if candidate in self.middle_strings or candidate in self.target_strings:
+                pass
+
             if best_candidate != "" and len(candidate) > len(best_candidate):
                 break
 
@@ -238,6 +238,13 @@ class Nomad():
         return best_candidate
 
 if __name__ == "__main__":  
-    s1 = '111111222222333333444444111111222222333333444444'
+    s1 = '1122334411223344'
+
     model = Nomad([s1])
-    model.find_best_grammar(10)
+    # model.middle_strings = ['1122334411223344']
+    # print model.recompute_graph_and_trim_middle_strings()
+    model.find_best_grammar(100)
+
+    # # pprint(model.dp_memos_cache)
+    # for w in model.middle_strings:
+    #     print w
