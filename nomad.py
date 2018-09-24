@@ -23,8 +23,6 @@ def levenshtein_multi_char_inserts(s_target, s_list):
 # dp_memo: holds the current best known score for creating the string up to a given index
 # dp_action_memo: stores what string was used as in insertion to get to a given index and
 #    specifies which index it was added at too.
-
-
 def levenshtein_multi_char_inserts_rec(s_target, m_index, S_list, dp_memo):
     if len(s_target) - 1 <= m_index:
         return
