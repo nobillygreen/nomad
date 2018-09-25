@@ -49,8 +49,7 @@ def parseRepeats(repeats, strings_as_array):
         pattern_loc = pattern_loc[1:-1]
         pattern_loc = map(int, pattern_loc.split(','))
         pattern_string = strings_as_array[pattern_loc[0]: pattern_loc[0] + length_of_pattern]
-        pattern_string = reduce(lambda a, b: str(
-            a) + str(b), pattern_string, "")
+        pattern_string = reduce(lambda a, b: a + chr(b), pattern_string, "")
 
         repeatedStrings.append((pattern_string, pattern_freq))
 
@@ -121,7 +120,7 @@ class Nomad():
     def strings_to_int_arrays(self, strings):
         int_array = []
         for s in strings:
-            int_array.append(map(int, list(s)))
+            int_array.append(map(ord, list(s)))
 
         return reduce(lambda a, b: a + [0] + b, int_array)
 
@@ -140,10 +139,10 @@ class Nomad():
                 
                 if len(s_c) == 1:
                     continue
-
+                
                 if s_c in self.middle_strings or s_c in self.target_strings:
                     continue
-                
+
                 filtered_canditates.append(c[0])
 
             former_middle_strings = sorted(copy(self.middle_strings))
@@ -158,6 +157,11 @@ class Nomad():
         return cost
 
 if __name__ == "__main__":
-    s = '112233441122334444332211'
-    model = Nomad([s])
+    minnin = []
+    with open('minnin.txt', 'r') as f:
+        for line in f:
+            minnin.append(line)
+    
+    model = Nomad(minnin[:5])
     model.find_best_grammar(100)
+

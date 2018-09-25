@@ -1,4 +1,5 @@
-from levenshtein import edit_distance as leven_dist
+# from levenshtein import edit_distance as leven_dist
+from Levenshtein import distance as leven_dist
 # https://rawgit.com/ztane/python-Levenshtein/master/docs/Levenshtein.html#Levenshtein-setmedian
 from collections import defaultdict
 
@@ -24,16 +25,25 @@ def levenshtein_multi_char_inserts(s_target, s_list):
             current_cost = dp_memo[s_index-1]['cost']
         for s in s_list:
             upperbound = int(min(len(s) * 1.5, len(s_target) - s_index))
-            substring_target = s_target[s_index:s_index + upperbound]
-            leven_memo = memoized_leven_dist(s, substring_target)
 
-            for i in xrange(1, len(leven_memo[-1])):
-                s_cost = current_cost + 1 + leven_memo[-1][i]
+            for i in xrange(1, upperbound + 1):
+                substring_target = s_target[s_index:s_index + i]
+                s_cost = current_cost + 1 + leven_dist(s, substring_target)
 
                 if dp_memo[s_index + i - 1]['from'] is None or dp_memo[s_index + i - 1]['cost'] > s_cost:
                     dp_memo[s_index + i - 1]['cost'] = s_cost
                     dp_memo[s_index + i - 1]['from'] = s_index - 1
                     dp_memo[s_index + i - 1]['via'] = s
+
+            # leven_memo = memoized_leven_dist(s, substring_target)
+
+            # for i in xrange(1, len(leven_memo[-1])):
+            #     s_cost = current_cost + 1 + leven_memo[-1][i]
+
+                # if dp_memo[s_index + i - 1]['from'] is None or dp_memo[s_index + i - 1]['cost'] > s_cost:
+                #     dp_memo[s_index + i - 1]['cost'] = s_cost
+                #     dp_memo[s_index + i - 1]['from'] = s_index - 1
+                #     dp_memo[s_index + i - 1]['via'] = s
 
     # levenshtein_multi_char_inserts_rec(s_target, -1, s_list, dp_memo, best_guesses)
     return dp_memo
