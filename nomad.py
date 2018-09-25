@@ -5,7 +5,8 @@ from copy import copy
 from modifiedLev import levenshtein_multi_char_inserts
 from collections import defaultdict
 from pprint import pprint
-from suffix_trees import STree
+from numpy.random import choice
+
 
 def extract_path_from_action_list(action_list):
     index = len(action_list) - 1
@@ -14,6 +15,7 @@ def extract_path_from_action_list(action_list):
         used_strings.append(action_list[index]['via'])
         index = action_list[index]['from']
     return used_strings[::-1]
+
 
 def extractRepeats(strings_as_array):
     process = subprocess.Popen(["./repeats1/repeats11", "-i", "-r"+"mr", "-n2",
@@ -66,26 +68,55 @@ class Nomad():
         self.grammar_cost = None
         self.recompute_graph_and_trim_middle_strings()
 
-    def filter_substring_repeats(self, candidates):
-        print "filtering"
+    def save_grammer_if_better(self):
+        with open('minningrammar/grammar.txt', 'r') as f:
+            cost = f.readline()
+            if cost != "" and float(cost) < self.grammar_cost:
+                print 'new grammar wasnt better: not saving'
+                return
+
+        with open('minningrammar/grammar.txt', 'w') as f:
+            print "self cost", self.grammar_cost
+            f.write(str(self.grammar_cost))
+            f.write('\n')
+            for motif in model.middle_strings:
+                f.write(motif)
+                f.write("\n")
+
+    def filter_substring_repeats(self, candidates, max_num=None):
+        print 'starting with', len(candidates), 'candidates'
         filtered_candidates = []
+        filtered_candidates_frequencies = []
         for c in candidates:
             s_c = str(c[0])
-            if '0' in str(s_c):
+            if '0' in s_c:
                 continue
-            
+
+            if "".join(s_c.split()) != s_c:
+                continue
+
             if len(s_c) == 1:
                 continue
-            
+
             if s_c in self.middle_strings or s_c in self.target_strings:
                 continue
 
             filtered_candidates.append(c[0])
+            filtered_candidates_frequencies.append(c[1])
 
-        substring_filtered_candidates = []
-        st = STree.STree(filtered_candidates)
-        print(st.root)
-        print(st.lcs())
+        # normalize frequence to 1
+        total = sum(filtered_candidates_frequencies)
+        filtered_candidates_frequencies = [x/float(total) for x in filtered_candidates_frequencies]
+
+        if not (max_num is None):
+            substring_filtered_candidates = choice(
+                filtered_candidates,
+                size=max_num,
+                replace=False,
+                p=filtered_candidates_frequencies),
+
+        print "candidates", substring_filtered_candidates[0]
+        return substring_filtered_candidates[0]
 
     # Compute the total cost of a grammar
     # returns the total cost of the grammar, the dp memo for each string, and the
@@ -126,11 +157,13 @@ class Nomad():
             count = used_string_counts[s]
             if count <= 1 and not s in self.alphabet:
                 middle_strings.remove(s)
+                print "----------------------------removing", s
                 string_costs[s] = 0
                 was_string_removed_flag = True
 
         while(was_string_removed_flag):
-            total_cost , middle_strings, was_string_removed_flag = self.total_cost(middle_strings)
+            total_cost, middle_strings, was_string_removed_flag = self.total_cost(
+                middle_strings)
 
         return total_cost, middle_strings, was_string_removed_flag
 
@@ -152,47 +185,36 @@ class Nomad():
         print "Starting cost: ", cost
         for i in xrange(max_iterations):
             all_strings = self.middle_strings + self.target_strings
-            candidates = extractRepeats(self.strings_to_int_arrays(all_strings))
+            candidates = extractRepeats(
+                self.strings_to_int_arrays(all_strings))
 
-            filtered_canditates = []
-            for c in candidates:
-                s_c = str(c[0])
-                if '0' in str(s_c):
-                    continue
-                
-                if len(s_c) == 1:
-                    continue
-                
-                if s_c in self.middle_strings or s_c in self.target_strings:
-                    continue
-
-                filtered_canditates.append(c[0])
-
+            filtered_candidates = self.filter_substring_repeats(candidates, 10)
             former_middle_strings = sorted(copy(self.middle_strings))
-            self.middle_strings.extend(filtered_canditates)
-            print "considering", len(filtered_canditates), "new candidates"
-            pprint(filtered_canditates)
-            cost = self.recompute_graph_and_trim_middle_strings()
-            print 'iteration', i, 'cost:', cost, sorted(self.middle_strings)
-            if sorted(self.middle_strings) == former_middle_strings:
-                print 'No strings were added. Terminating'
-                break
+            self.middle_strings.extend(filtered_candidates)
+            print "considering", len(filtered_candidates), "new candidates"
+            new_cost = self.recompute_graph_and_trim_middle_strings()
+            if new_cost >= cost:
+                print "wasn't better, going back to former middle strings"
+                self.middle_strings = former_middle_strings
+            else:
+                cost = new_cost
+            print 'iteration', i, 'cost:', cost, "\n\n"
+            self.save_grammer_if_better()
 
-        print 'best grammar', self.middle_strings, cost
+        print 'best grammar', self.middle_strings, cost,
         return cost
 
-if __name__ == "__main__":
-    model = Nomad('aaaabababbaa')
-    model.filter_substring_repeats(['aaa', 'aba', 'abba', 'ab'])
-    # minnin = []
-    # with open('minnin.txt', 'r') as f:
-    #     for line in f:
-    #         minnin.append(line)
-    
-    # model = Nomad(minnin)
-    # model.find_best_grammar(100)
 
-    # with open('./minningrammar/grammar.txt', 'w') as f:
-    #     for motif in model.middle_strings:
-    #         f.write(motif)
-    #         f.write("\n")
+if __name__ == "__main__":
+    minnin = []
+    with open('minnin.txt', 'r') as f:
+        for line in f:
+            minnin.append(line)
+
+    model = Nomad(minnin)
+    model.find_best_grammar(100)
+
+    with open('./minningrammar/grammar.txt', 'w') as f:
+        for motif in model.middle_strings:
+            f.write(motif)
+            f.write("\n")
