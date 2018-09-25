@@ -5,6 +5,7 @@ from copy import copy
 from modifiedLev import levenshtein_multi_char_inserts
 from collections import defaultdict
 from pprint import pprint
+from suffix_trees import STree
 
 def extract_path_from_action_list(action_list):
     index = len(action_list) - 1
@@ -55,6 +56,7 @@ def parseRepeats(repeats, strings_as_array):
 
     return repeatedStrings
 
+
 class Nomad():
 
     def __init__(self, target_strings):
@@ -63,6 +65,27 @@ class Nomad():
         self.middle_strings = []
         self.grammar_cost = None
         self.recompute_graph_and_trim_middle_strings()
+
+    def filter_substring_repeats(self, candidates):
+        print "filtering"
+        filtered_candidates = []
+        for c in candidates:
+            s_c = str(c[0])
+            if '0' in str(s_c):
+                continue
+            
+            if len(s_c) == 1:
+                continue
+            
+            if s_c in self.middle_strings or s_c in self.target_strings:
+                continue
+
+            filtered_candidates.append(c[0])
+
+        substring_filtered_candidates = []
+        st = STree.STree(filtered_candidates)
+        print(st.root)
+        print(st.lcs())
 
     # Compute the total cost of a grammar
     # returns the total cost of the grammar, the dp memo for each string, and the
@@ -147,8 +170,10 @@ class Nomad():
 
             former_middle_strings = sorted(copy(self.middle_strings))
             self.middle_strings.extend(filtered_canditates)
+            print "considering", len(filtered_canditates), "new candidates"
+            pprint(filtered_canditates)
             cost = self.recompute_graph_and_trim_middle_strings()
-            print 'iteration', i, 'cost:', cost
+            print 'iteration', i, 'cost:', cost, sorted(self.middle_strings)
             if sorted(self.middle_strings) == former_middle_strings:
                 print 'No strings were added. Terminating'
                 break
@@ -157,11 +182,17 @@ class Nomad():
         return cost
 
 if __name__ == "__main__":
-    minnin = []
-    with open('minnin.txt', 'r') as f:
-        for line in f:
-            minnin.append(line)
+    model = Nomad('aaaabababbaa')
+    model.filter_substring_repeats(['aaa', 'aba', 'abba', 'ab'])
+    # minnin = []
+    # with open('minnin.txt', 'r') as f:
+    #     for line in f:
+    #         minnin.append(line)
     
-    model = Nomad(minnin[:5])
-    model.find_best_grammar(100)
+    # model = Nomad(minnin)
+    # model.find_best_grammar(100)
 
+    # with open('./minningrammar/grammar.txt', 'w') as f:
+    #     for motif in model.middle_strings:
+    #         f.write(motif)
+    #         f.write("\n")
