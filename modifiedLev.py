@@ -34,18 +34,7 @@ def levenshtein_multi_char_inserts(s_target, s_list):
                     dp_memo[s_index + i - 1]['cost'] = s_cost
                     dp_memo[s_index + i - 1]['from'] = s_index - 1
                     dp_memo[s_index + i - 1]['via'] = s
-
-            # leven_memo = memoized_leven_dist(s, substring_target)
-
-            # for i in xrange(1, len(leven_memo[-1])):
-            #     s_cost = current_cost + 1 + leven_memo[-1][i]
-
-                # if dp_memo[s_index + i - 1]['from'] is None or dp_memo[s_index + i - 1]['cost'] > s_cost:
-                #     dp_memo[s_index + i - 1]['cost'] = s_cost
-                #     dp_memo[s_index + i - 1]['from'] = s_index - 1
-                #     dp_memo[s_index + i - 1]['via'] = s
-
-    # levenshtein_multi_char_inserts_rec(s_target, -1, s_list, dp_memo, best_guesses)
+                    
     return dp_memo
 
 
